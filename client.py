@@ -18,7 +18,7 @@ HMAC_KEY = "8s9bdhcuxk.,1230"
 
 
 clientsocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-clientsocket.connect(('', 6000))
+clientsocket.connect(('', 3000))
 
 quit = False
 
@@ -35,9 +35,9 @@ while not quit:
         print(actual_time)
         (encrypted_data, iv_bytes, signature) = encrypt(msg, SHARED_KEY, HMAC_KEY)
         msg = iv_bytes + signature + encrypted_data
-        print(len(iv_bytes))
-        print(len(signature))
-        print(len(encrypted_data))
-        print(len(msg))
+        # print(len(iv_bytes))
+        # print(len(signature))
+        # print(len(encrypted_data))
+        # print(len(msg))
         clientsocket.send(msg)
 

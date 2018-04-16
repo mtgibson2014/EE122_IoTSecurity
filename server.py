@@ -3,6 +3,13 @@ import select
 import thread
 import time
 from auth_encrypt import *
+from OpenSSL import SSL
+import ssl
+
+HOST = "https://c31d6f06.ngrok.io"
+NGROK_PORT = 443
+HOST = socket.getaddrinfo(HOST, NGROK_PORT)[0][4][0]
+
 
 SHARED_KEY = "ajdurhfvbycuie8734f.,kixhbdjxv98"
 HMAC_KEY = "8s9bdhcuxk.,1230"
@@ -12,74 +19,105 @@ SIGN_LEN = 32
 MSG_SIZE = 64
 
 
-def on_new_client(clientsocket,addr):
+#socket to send data over to iot device
+to_iot = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+to_iot.connect(('', 5000))
+
+#socket to receive from iot
+from_iot = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+from_iot.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+from_iot.bind(('', 9000))
+from_iot.listen(5)
+
+#create an INET, STREAMing socket
+serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# bind the socket to a public host,
+# and a well-known port
+serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+serversocket.bind(('', 3000))
+#become a server socket
+serversocket.listen(5)
+conn = None
+
+
+def listen_to_iot():
+    print("Waiting from IoT")
+    conn, addr = from_iot.accept()
+    print("Connected to IoT")
     while True:
-        msg = clientsocket.recv(1024)
+        msg = conn.recv(1024)
+        print 'IoT device: ', addr[1], ' >> ', msg
+        context = SSL.Context(SSL.SSLv23_METHOD)
+        sock = socket.socket()
+        sock = SSL.Connection(context, sock)
+        sock.connect(('www.google.com', 443))
+        sock.do_handshake()
+        print 'IoT device: ', addr[1], ' >> Done Handshake'
+
+
+def on_new_client(conn,addr):
+
+    while True:
+        msg = conn.recv(1024)
         if msg.strip() == "q" or msg == "":
             conn.close()
             print("Received disconnect message.  Shutting down " + str(addr[1]))
             break
 
-        #do some checks and if msg == someWeirdSignal: break:
-
-        # parsed = msg.split("@")
-        # content = parsed[0]
-        # time_from_client = parsed[1]
-        # print addr[1], ' >> ', content
-        # print addr[1], ' time taken: ', time.time() - float(time_from_client)
-
         iv_bytes = msg[0:IV_LEN]
         signature = msg[IV_LEN:IV_LEN+SIGN_LEN]
         encrypted_data = msg[IV_LEN+SIGN_LEN:MSG_SIZE]
-        start_time = 
         try:
-        	start_time = ...
-        	content = decrypt(encrypted_data, iv_bytes, signature, SHARED_KEY, HMAC_KEY)
-        	end_time = ...
+            #start_time = ...
+            content = decrypt(encrypted_data, iv_bytes, signature, SHARED_KEY, HMAC_KEY)
+            #end_time = ...
         except AuthenticationError as e:
-        	print("There's an attack.")
+            serversocket.close()
+            to_iot.close()
+            from_iot.close()
+            print("There's an attack.")
+
         else:
-        	print addr[1], ' >> ', content
+            to_iot.send(content)
+            print addr[1], ' >> ', content
 
-        #msg = raw_input('SERVER >> ')
-        #Maybe some code to compute the last digit of PI, play game or anything else can go here and when you are done.
-        #clientsocket.send(msg)
-    clientsocket.close()
+def verify_cb(conn, x509, errno, errdepth, retcode):
+  """
+  callback for certificate validation
+  should return true if verification passes and false otherwise
+  """
+  if errno == 0:
+    if errdepth != 0:
+      # don't validate names of root certificates
+      return True
+    else:
+      if x509.get_subject().commonName != HOST:
+        return False
+  else:
+    return False
 
 
-port = 6000
-#create an INET, STREAMing socket
-serversocket = socket.socket(
-    socket.AF_INET, socket.SOCK_STREAM)
-# bind the socket to a public host,
-# and a well-known port
-serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-serversocket.bind(('', port))
-#become a server socket
-serversocket.listen(5)
-print("\nconnected to port " + str(port))
-conn = None
-
-#pick a large output buffer size because i dont necessarily know how big the incoming packet is
 while True:
     try:
-        conn, address = serversocket.accept()     # Establish connection with client.
-        thread.start_new_thread(on_new_client,(conn,address))
-        print ("Connected to client at " + str(address))
-        # output = conn.recv(2048);
-        # if output.strip() == "q":
-        #     conn.close()
-        #     print("Received disconnect message.  Shutting down.")
-        #     break
-        # elif output:
-        #     print ("Message received from client " + " : " + output)
-        #     print (address[0])
+        # Establish connection with client.
+        thread.start_new_thread(listen_to_iot, ())
+        conn, addr = serversocket.accept()
+        thread.start_new_thread(on_new_client, (conn,addr))
+        print ("Connected to client at " + str(addr))
+
+
 
     except Exception as e:
+        serversocket.close()
+        to_iot.close()
+        from_iot.close()
         if conn != None:
             print ("closing socket: " + str(conn))
             conn.close()
 
         print(e)
         break
+
+
+
 
