@@ -6,9 +6,6 @@ from auth_encrypt import *
 from OpenSSL import SSL
 import ssl
 
-HOST = "https://c31d6f06.ngrok.io"
-NGROK_PORT = 443
-HOST = socket.getaddrinfo(HOST, NGROK_PORT)[0][4][0]
 
 
 SHARED_KEY = "ajdurhfvbycuie8734f.,kixhbdjxv98"
@@ -36,7 +33,7 @@ serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 serversocket.bind(('', 3000))
 #become a server socket
-serversocket.listen(1)
+serversocket.listen(5)
 conn = None
 
 exiting = False
@@ -46,20 +43,23 @@ def listen_to_iot():
     print("Waiting from IoT")
     conn, addr = from_iot.accept()
     print("Connected to IoT")
+    handshake = False
     while True:
         msg = conn.recv(1024)
         print 'IoT device: ', addr[1], ' >> ', msg
-        context = SSL.Context(SSL.SSLv23_METHOD)
-        sock = socket.socket()
-        sock = SSL.Connection(context, sock)
-        sock.connect(('www.google.com', 443))
-        start_time = time.time()
-        sock.do_handshake()
-        end_time = time.time()
-        actual_time = end_time - start_time
-        print("Time for Handshake: " + str(actual_time))
-        print 'IoT device: ', addr[1], ' >> Done Handshake'
-        return
+        
+        if handshake == False:
+            context = SSL.Context(SSL.SSLv23_METHOD)
+            sock = socket.socket()
+            sock = SSL.Connection(context, sock)
+            sock.connect(('www.google.com', 443))
+            start_time = time.time()
+            sock.do_handshake()
+            end_time = time.time()
+            actual_time = end_time - start_time
+            print("Time for Handshake: " + str(actual_time))
+            print 'IoT device: ', addr[1], ' >> Done Handshake'
+            handshake = True
 
 @profile
 def on_new_client(conn,addr):
@@ -91,7 +91,6 @@ def on_new_client(conn,addr):
             to_iot.send(content)
             print addr[1], ' >> ', content
             # exiting = True
-            return
 
 @profile
 def verify_cb(conn, x509, errno, errdepth, retcode):
@@ -109,11 +108,16 @@ def verify_cb(conn, x509, errno, errdepth, retcode):
   else:
     return False
 
+iot_set_up = False
 
 while not exiting:
     try:
         # Establish connection with client.
-        thread.start_new_thread(listen_to_iot, ())
+        if iot_set_up == False:
+            for i in range(0,10):
+                thread.start_new_thread(listen_to_iot, ())
+            iot_set_up = True
+            
         conn, addr = serversocket.accept()
         thread.start_new_thread(on_new_client, (conn,addr))
         print ("Connected to client at " + str(addr))
