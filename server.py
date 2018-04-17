@@ -36,10 +36,12 @@ serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 serversocket.bind(('', 3000))
 #become a server socket
-serversocket.listen(5)
+serversocket.listen(1)
 conn = None
 
+exiting = False
 
+@profile
 def listen_to_iot():
     print("Waiting from IoT")
     conn, addr = from_iot.accept()
@@ -53,8 +55,9 @@ def listen_to_iot():
         sock.connect(('www.google.com', 443))
         sock.do_handshake()
         print 'IoT device: ', addr[1], ' >> Done Handshake'
+        return
 
-
+@profile
 def on_new_client(conn,addr):
 
     while True:
@@ -80,7 +83,10 @@ def on_new_client(conn,addr):
         else:
             to_iot.send(content)
             print addr[1], ' >> ', content
+            # exiting = True
+            return
 
+@profile
 def verify_cb(conn, x509, errno, errdepth, retcode):
   """
   callback for certificate validation
@@ -97,14 +103,15 @@ def verify_cb(conn, x509, errno, errdepth, retcode):
     return False
 
 
-while True:
+while not exiting:
     try:
         # Establish connection with client.
         thread.start_new_thread(listen_to_iot, ())
         conn, addr = serversocket.accept()
         thread.start_new_thread(on_new_client, (conn,addr))
         print ("Connected to client at " + str(addr))
-
+        # if(exiting):
+        #     break
 
 
     except Exception as e:

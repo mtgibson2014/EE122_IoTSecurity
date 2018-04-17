@@ -10,7 +10,7 @@ from auth_encrypt import *
 serversocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 serversocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 serversocket.bind(('', 5000))
-serversocket.listen(5)
+serversocket.listen(1)
 
 # Sending Message to Box
 #create an INET, STREAMing socket
