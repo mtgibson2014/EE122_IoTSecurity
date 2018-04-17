@@ -23,21 +23,24 @@ clientsocket.connect(('', 3000))
 quit = False
 
 print("Connected. Type 'q' to quit")
+msg = ""
+for i in range(0,900):
+    msg += "a"
 
-while not quit:
-    msg = raw_input("Enter your message: ")
-    if msg == "q" or msg == "Q" or msg =="quit":
-        quit = True
-        clientsocket.send(msg)
-        clientsocket.close()
-    else:
-        actual_time = time.time()
-        print(actual_time)
-        (encrypted_data, iv_bytes, signature) = encrypt(msg, SHARED_KEY, HMAC_KEY)
-        msg = iv_bytes + signature + encrypted_data
-        # print(len(iv_bytes))
-        # print(len(signature))
-        # print(len(encrypted_data))
-        # print(len(msg))
-        clientsocket.send(msg)
+#while not quit:
+    #msg = raw_input("Enter your message: ")
+
+
+if msg == "q" or msg == "Q" or msg =="quit":
+    quit = True
+    clientsocket.send(msg)
+    clientsocket.close()
+else:
+    (encrypted_data, iv_bytes, signature) = encrypt(msg, SHARED_KEY, HMAC_KEY)
+    msg = iv_bytes + signature + encrypted_data
+    # print(len(iv_bytes))
+    # print(len(signature))
+    # print(len(encrypted_data))
+    # print(len(msg))
+    clientsocket.send(msg)
 

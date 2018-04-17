@@ -16,7 +16,7 @@ HMAC_KEY = "8s9bdhcuxk.,1230"
 
 IV_LEN = 16
 SIGN_LEN = 32
-MSG_SIZE = 64
+
 
 
 #socket to send data over to iot device
@@ -53,7 +53,11 @@ def listen_to_iot():
         sock = socket.socket()
         sock = SSL.Connection(context, sock)
         sock.connect(('www.google.com', 443))
+        start_time = time.time()
         sock.do_handshake()
+        end_time = time.time()
+        actual_time = end_time - start_time
+        print("Time for Handshake: " + str(actual_time))
         print 'IoT device: ', addr[1], ' >> Done Handshake'
         return
 
@@ -62,18 +66,21 @@ def on_new_client(conn,addr):
 
     while True:
         msg = conn.recv(1024)
-        if msg.strip() == "q" or msg == "":
+        if msg.strip() == "q":
             conn.close()
             print("Received disconnect message.  Shutting down " + str(addr[1]))
             break
 
         iv_bytes = msg[0:IV_LEN]
         signature = msg[IV_LEN:IV_LEN+SIGN_LEN]
-        encrypted_data = msg[IV_LEN+SIGN_LEN:MSG_SIZE]
+        encrypted_data = msg[IV_LEN+SIGN_LEN:]
         try:
-            #start_time = ...
+            start_time = time.time()
             content = decrypt(encrypted_data, iv_bytes, signature, SHARED_KEY, HMAC_KEY)
-            #end_time = ...
+            end_time = time.time()
+            actual_time = end_time - start_time
+            print("Time for decrypt: " + str(actual_time))
+
         except AuthenticationError as e:
             serversocket.close()
             to_iot.close()
